@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface LoginModalProps {
   open: boolean;
@@ -13,18 +15,42 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // TODO: Implementar login com Supabase
-    console.log("Login:", { email, password });
-    
-    setTimeout(() => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        toast({
+          title: "Erro no login",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Login realizado com sucesso!",
+          description: "Bem-vindo ao Tokenstein",
+        });
+        onOpenChange(false);
+        setEmail("");
+        setPassword("");
+      }
+    } catch (error) {
+      toast({
+        title: "Erro inesperado",
+        description: "Tente novamente mais tarde",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
-      onOpenChange(false);
-    }, 1000);
+    }
   };
 
   return (

@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface RegisterModalProps {
   open: boolean;
@@ -17,23 +19,61 @@ export const RegisterModal = ({ open, onOpenChange }: RegisterModalProps) => {
     name: ""
   });
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      alert("Senhas não coincidem!");
+      toast({
+        title: "Erro no cadastro",
+        description: "As senhas não coincidem!",
+        variant: "destructive",
+      });
       return;
     }
     
     setLoading(true);
     
-    // TODO: Implementar registro com Supabase
-    console.log("Register:", formData);
-    
-    setTimeout(() => {
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            name: formData.name,
+          }
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "Erro no cadastro",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Conta criada com sucesso!",
+          description: "Verifique seu email para confirmar a conta",
+        });
+        onOpenChange(false);
+        setFormData({
+          email: "",
+          password: "",
+          confirmPassword: "",
+          name: ""
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro inesperado",
+        description: "Tente novamente mais tarde",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
-      onOpenChange(false);
-    }, 1000);
+    }
   };
 
   const updateFormData = (field: string, value: string) => {
