@@ -9,52 +9,52 @@ import constantine from "@/assets/constantine-cyber.jpg";
 
 const tokens: Token[] = [
   {
-    id: 1,
+    id: "julius-caesar",
     name: "Julius Caesar",
-    price: 8,
-    rarity: "Common",
-    description: "O pré fundador de Roma. Compre esse token para iniciar sua jornada e ganhar seus primeiros pontos.",
-    image: juliusCaesar
+    price: 10,
+    points: 25,
+    description: "O conquistador das Gálias",
+    image_url: juliusCaesar
   },
   {
-    id: 2,
+    id: "augustus",
     name: "Augustus",
-    price: 16,
-    rarity: "Uncommon", 
-    description: "Primeiro imperador de Roma, criando o período chamado Pax Romana. Esse é o token que rende mais rápido.",
-    image: augustus
+    price: 8,
+    points: 20,
+    description: "O primeiro imperador romano",
+    image_url: augustus
   },
   {
-    id: 3,
+    id: "nero",
     name: "Nero",
-    price: 40,
-    rarity: "Rare",
-    description: "Imperador considerado tirano e cruel. Compradores concorrem a premiações em dinheiro todo mês.",
-    image: nero
+    price: 6,
+    points: 15,
+    description: "O imperador controverso",
+    image_url: nero
   },
   {
-    id: 4,
+    id: "trajan",
     name: "Trajan",
-    price: 80,
-    rarity: "Epic",
-    description: "Considerado o imperador que entregou o ápice de Roma. Compradores concorrem a cupons de desconto equivalente ao valor gasto.",
-    image: trajan
+    price: 12,
+    points: 30,
+    description: "O imperador expansionista",
+    image_url: trajan
   },
   {
-    id: 5,
+    id: "marcus-aurelius",
     name: "Marcus Aurelius",
-    price: 400,
-    rarity: "Legendary",
-    description: "Imperador e filósofo, criador do estoicismo. Esse token rende 50 reais de lucro ao valorizar, e compradores concorrem a prêmios mensais.",
-    image: marcusAurelius
+    price: 15,
+    points: 37,
+    description: "O imperador filósofo",
+    image_url: marcusAurelius
   },
   {
-    id: 6,
+    id: "constantine",
     name: "Constantine",
-    price: 800,
-    rarity: "Legendary",
-    description: "Primeiro imperador cristão de Roma. Token premium com os maiores retornos e benefícios exclusivos para portadores.",
-    image: constantine
+    price: 20,
+    points: 50,
+    description: "O primeiro imperador cristão",
+    image_url: constantine
   }
 ];
 
@@ -79,7 +79,7 @@ export const TokensSection = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
           {tokens.slice(0, 3).map((token) => (
-            <TokenCard key={token.id} token={token} onBuy={handleBuyToken} />
+            <TokenCard key={token.id} token={token} onPurchase={() => handleBuyToken(token)} />
           ))}
         </div>
         

@@ -1,69 +1,63 @@
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 export interface Token {
-  id: number;
+  id: string;
   name: string;
-  price: number;
-  rarity: "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary";
   description: string;
-  image: string;
+  image_url: string;
+  price: number;
+  points: number;
 }
 
 interface TokenCardProps {
   token: Token;
-  onBuy: (token: Token) => void;
+  onPurchase: () => void;
 }
 
-const rarityColors = {
-  Common: "bg-slate-600/20 border-slate-500 text-slate-200",
-  Uncommon: "bg-green-600/20 border-green-500 text-green-200",
-  Rare: "bg-blue-600/20 border-blue-500 text-blue-200",
-  Epic: "bg-purple-600/20 border-purple-500 text-purple-200",
-  Legendary: "bg-yellow-600/20 border-yellow-500 text-yellow-200"
-};
-
-export const TokenCard = ({ token, onBuy }: TokenCardProps) => {
+export const TokenCard = ({ token, onPurchase }: TokenCardProps) => {
   return (
-    <div className="token-card animate-float group">
-      <div className="relative overflow-hidden rounded-lg mb-4">
-        <img 
-          src={token.image} 
-          alt={token.name}
-          className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-110"
-        />
-        <div className="absolute top-2 right-2">
-          <Badge 
-            variant="outline" 
-            className={`${rarityColors[token.rarity]} font-bold`}
-          >
-            {token.rarity}
-          </Badge>
+    <Card className="bg-card/90 border-border hover-scale group">
+      <CardContent className="p-0">
+        <div className="relative overflow-hidden rounded-t-lg">
+          <img
+            src={token.image_url}
+            alt={token.name}
+            className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-110"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
         </div>
-      </div>
-      
-      <div className="space-y-3">
-        <h3 className="text-xl font-bold text-accent glow-text">
-          {token.name}
-        </h3>
         
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          {token.description}
-        </p>
-        
-        <div className="flex items-center justify-between">
-          <span className="text-2xl font-bold text-primary">
-            R${token.price} CR
-          </span>
+        <div className="p-6 space-y-4">
+          <div>
+            <h3 className="text-xl font-bold text-accent glow-text">
+              {token.name}
+            </h3>
+            <p className="text-muted-foreground text-sm mt-1">
+              {token.description}
+            </p>
+          </div>
+          
+          <div className="flex justify-between items-center">
+            <div className="space-y-1">
+              <div className="text-sm text-foreground">
+                <span className="text-primary">Preço:</span> {token.price} créditos
+              </div>
+              <div className="text-sm text-foreground">
+                <span className="text-accent">Pontos:</span> {token.points}
+              </div>
+            </div>
+          </div>
           
           <Button 
-            onClick={() => onBuy(token)}
-            className="btn-cyber-primary animate-pulse-red"
+            onClick={onPurchase}
+            className="w-full btn-cyber-primary"
+            size="lg"
           >
             BUY
           </Button>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
