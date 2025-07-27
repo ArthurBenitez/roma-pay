@@ -77,6 +77,10 @@ export const UserStats = () => {
 
   const handlePurchaseSuccess = () => {
     fetchUserStats();
+    // Limpar parâmetros de URL após pagamento
+    const url = new URL(window.location.href);
+    url.searchParams.delete('payment');
+    window.history.replaceState({}, document.title, url.pathname);
   };
 
   if (loading) {

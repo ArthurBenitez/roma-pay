@@ -148,7 +148,7 @@ export const MarketplaceTokens = () => {
       });
 
     // Adicionar pontos (valor + 25%)
-    const pointsEarned = Math.floor(token.points * 1.25);
+    const pointsEarned = Math.floor(token.price * 1.25);
     await supabase
       .from('user_scores')
       .update({ score: userStats.score + pointsEarned })
