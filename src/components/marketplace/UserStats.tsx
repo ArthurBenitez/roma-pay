@@ -125,7 +125,20 @@ export const UserStats = () => {
     url.searchParams.delete('payment');
     url.searchParams.delete('session_id');
     window.history.replaceState({}, document.title, url.pathname);
+    
+    // Disparar evento personalizado para outros componentes saberem que stats foram atualizados
+    window.dispatchEvent(new CustomEvent('userStatsUpdated'));
   };
+
+  // Escutar eventos de atualização de outros componentes
+  useEffect(() => {
+    const handleStatsUpdate = () => {
+      fetchUserStats();
+    };
+
+    window.addEventListener('userStatsUpdated', handleStatsUpdate);
+    return () => window.removeEventListener('userStatsUpdated', handleStatsUpdate);
+  }, [user]);
 
   if (loading) {
     return (

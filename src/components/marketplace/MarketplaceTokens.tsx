@@ -171,7 +171,17 @@ export const MarketplaceTokens = () => {
       description: `Você ganhou ${pointsEarned} pontos com o token ${token.name}`,
     });
 
+    // Atualizar stats localmente para feedback instantâneo
+    setUserStats(prev => ({
+      credits: prev.credits - token.price,
+      score: prev.score + pointsEarned
+    }));
+
+    // Atualizar do servidor para garantir consistência  
     await fetchUserStats();
+    
+    // Notificar outros componentes sobre a atualização
+    window.dispatchEvent(new CustomEvent('userStatsUpdated'));
   };
 
   const handleLottery = async (token: Token, loserUserId: string) => {
@@ -236,7 +246,17 @@ export const MarketplaceTokens = () => {
       description: `Você ganhou ${token.points} pontos no sorteio do token ${token.name}`,
     });
 
+    // Atualizar stats localmente para feedback instantâneo
+    setUserStats(prev => ({
+      credits: prev.credits - token.price,
+      score: prev.score + token.points
+    }));
+
+    // Atualizar do servidor para garantir consistência
     await fetchUserStats();
+    
+    // Notificar outros componentes sobre a atualização
+    window.dispatchEvent(new CustomEvent('userStatsUpdated'));
   };
 
   if (loading) {
