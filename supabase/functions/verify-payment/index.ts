@@ -61,7 +61,7 @@ serve(async (req) => {
       .from("user_credits")
       .select("credits")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
 
     const newCreditsTotal = (currentCredits?.credits || 0) + creditsAmount;
 
