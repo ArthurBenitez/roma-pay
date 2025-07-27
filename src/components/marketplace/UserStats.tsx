@@ -3,7 +3,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { Coins, Trophy } from "lucide-react";
+import { CreditsPurchaseModal } from "./CreditsPurchaseModal";
 
 interface UserStats {
   credits: number;
@@ -12,12 +14,20 @@ interface UserStats {
 
 export const UserStats = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [stats, setStats] = useState<UserStats>({ credits: 0, score: 0 });
   const [loading, setLoading] = useState(true);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
   useEffect(() => {
     if (user) {
       fetchUserStats();
+      
+      // Check for payment success in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('payment') === 'success') {
+        handlePaymentSuccess();
+      }
     }
   }, [user]);
 
@@ -47,6 +57,26 @@ export const UserStats = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePaymentSuccess = () => {
+    toast({
+      title: "Verificando pagamento...",
+      description: "Aguarde enquanto confirmamos seu pagamento",
+    });
+    
+    // Refresh stats after payment
+    setTimeout(() => {
+      fetchUserStats();
+      toast({
+        title: "Pagamento processado!",
+        description: "Seus créditos foram atualizados",
+      });
+    }, 2000);
+  };
+
+  const handlePurchaseSuccess = () => {
+    fetchUserStats();
   };
 
   if (loading) {
@@ -93,13 +123,20 @@ export const UserStats = () => {
       <Card className="bg-card/50 border-border hover-scale">
         <CardContent className="p-6 text-center">
           <Button 
-            className="w-full btn-cyber-primary animate-pulse"
+            className="w-full btn-rich-green text-lg px-8 py-4"
             size="lg"
+            onClick={() => setShowPurchaseModal(true)}
           >
-            Obter Créditos
+            💰 Obter Créditos 💰
           </Button>
         </CardContent>
       </Card>
+
+      <CreditsPurchaseModal
+        open={showPurchaseModal}
+        onOpenChange={setShowPurchaseModal}
+        onSuccess={handlePurchaseSuccess}
+      />
     </div>
   );
 };
