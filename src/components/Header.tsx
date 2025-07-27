@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { LoginModal } from "./auth/LoginModal";
 import { RegisterModal } from "./auth/RegisterModal";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Header = () => {
+  const { user, signOut } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
 
@@ -30,19 +32,36 @@ export const Header = () => {
           </nav>
 
           <div className="flex items-center space-x-3">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowLogin(true)}
-              className="btn-cyber-outline"
-            >
-              Login
-            </Button>
-            <Button 
-              onClick={() => setShowRegister(true)}
-              className="btn-cyber-primary"
-            >
-              Criar Conta Grátis
-            </Button>
+            {user ? (
+              <>
+                <span className="text-foreground">
+                  Olá, {user.email?.split('@')[0] || 'Usuário'}
+                </span>
+                <Button 
+                  variant="outline" 
+                  onClick={signOut}
+                  className="btn-cyber-outline"
+                >
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowLogin(true)}
+                  className="btn-cyber-outline"
+                >
+                  Login
+                </Button>
+                <Button 
+                  onClick={() => setShowRegister(true)}
+                  className="btn-cyber-primary"
+                >
+                  Criar Conta Grátis
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
