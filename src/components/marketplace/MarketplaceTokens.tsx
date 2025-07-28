@@ -95,27 +95,27 @@ export const MarketplaceTokens = () => {
 
     try {
       // Verifica se outros usuários têm o mesmo token
-      const { data: existingTokens } = await supabase
+      const { data: existingTokens, error: fetchError } = await supabase
         .from('user_tokens')
         .select('user_id')
         .eq('token_id', token.id);
 
+      if (fetchError) {
+        console.error('Error fetching existing tokens:', fetchError);
+        throw fetchError;
+      }
+
       const otherUsers = existingTokens?.filter(t => t.user_id !== user.id) || [];
       
       if (otherUsers.length > 0) {
-        // Sistema de sorteio
-        const randomIndex = Math.floor(Math.random() * (otherUsers.length + 1));
+        // Sistema de sorteio - sortear entre outros usuários (não incluir o comprador)
+        const randomIndex = Math.floor(Math.random() * otherUsers.length);
+        const loserUserId = otherUsers[randomIndex].user_id;
         
-        if (randomIndex === otherUsers.length) {
-          // Usuário atual ganha o token
-          await purchaseToken(token);
-        } else {
-          // Outro usuário perde o token, usuário atual ganha pontos
-          const loserUserId = otherUsers[randomIndex].user_id;
-          await handleLottery(token, loserUserId);
-        }
+        // Realizar sorteio - comprador ganha pontos, perdedor perde token mas ganha pontos
+        await handleLottery(token, loserUserId);
       } else {
-        // Compra normal
+        // Compra normal - nenhum outro usuário tem este token
         await purchaseToken(token);
       }
     } catch (error) {
@@ -131,132 +131,251 @@ export const MarketplaceTokens = () => {
   const purchaseToken = async (token: Token) => {
     if (!user) return;
 
-    // Debitar créditos
-    await supabase
-      .from('user_credits')
-      .update({ credits: userStats.credits - token.price })
-      .eq('user_id', user.id);
+    try {
+      // Operação atômica - todas as operações devem ser bem-sucedidas ou falhar juntas
+      const newCredits = userStats.credits - token.price;
+      const pointsEarned = Math.floor(token.price * 1.25);
+      const newScore = userStats.score + pointsEarned;
 
-    // Adicionar token
-    await supabase
-      .from('user_tokens')
-      .insert({
-        user_id: user.id,
-        token_id: token.id,
-        token_name: token.name,
-        purchase_price: token.price
+      // 1. Debitar créditos
+      const { error: creditsError } = await supabase
+        .from('user_credits')
+        .update({ credits: newCredits })
+        .eq('user_id', user.id);
+
+      if (creditsError) throw creditsError;
+
+      // 2. Adicionar token
+      const { error: tokenError } = await supabase
+        .from('user_tokens')
+        .insert({
+          user_id: user.id,
+          token_id: token.id,
+          token_name: token.name,
+          purchase_price: token.price
+        });
+
+      if (tokenError) {
+        // Reverter créditos em caso de erro
+        await supabase
+          .from('user_credits')
+          .update({ credits: userStats.credits })
+          .eq('user_id', user.id);
+        throw tokenError;
+      }
+
+      // 3. Adicionar pontos (valor + 25%)
+      const { error: scoreError } = await supabase
+        .from('user_scores')
+        .update({ score: newScore })
+        .eq('user_id', user.id);
+
+      if (scoreError) {
+        // Reverter créditos e remover token em caso de erro
+        await Promise.all([
+          supabase
+            .from('user_credits')
+            .update({ credits: userStats.credits })
+            .eq('user_id', user.id),
+          supabase
+            .from('user_tokens')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('token_id', token.id)
+            .order('purchased_at', { ascending: false })
+            .limit(1)
+        ]);
+        throw scoreError;
+      }
+
+      // 4. Registrar transação
+      await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          type: 'token_purchase',
+          credits: -token.price,
+          points: pointsEarned,
+          description: `Compra do token ${token.name}`,
+          metadata: { token_id: token.id, token_name: token.name }
+        });
+
+      toast({
+        title: "Token comprado!",
+        description: `Você ganhou ${pointsEarned} pontos com o token ${token.name}`,
       });
 
-    // Adicionar pontos (valor + 25%)
-    const pointsEarned = Math.floor(token.price * 1.25);
-    await supabase
-      .from('user_scores')
-      .update({ score: userStats.score + pointsEarned })
-      .eq('user_id', user.id);
-
-    // Registrar transação
-    await supabase
-      .from('transactions')
-      .insert({
-        user_id: user.id,
-        type: 'token_purchase',
-        credits: -token.price,
-        points: pointsEarned,
-        description: `Compra do token ${token.name}`,
-        metadata: { token_id: token.id, token_name: token.name }
+      // Atualizar stats localmente para feedback instantâneo
+      setUserStats({
+        credits: newCredits,
+        score: newScore
       });
 
-    toast({
-      title: "Token comprado!",
-      description: `Você ganhou ${pointsEarned} pontos com o token ${token.name}`,
-    });
-
-    // Atualizar stats localmente para feedback instantâneo
-    setUserStats(prev => ({
-      credits: prev.credits - token.price,
-      score: prev.score + pointsEarned
-    }));
-
-    // Atualizar do servidor para garantir consistência  
-    await fetchUserStats();
-    
-    // Notificar outros componentes sobre a atualização
-    window.dispatchEvent(new CustomEvent('userStatsUpdated'));
+      // Notificar outros componentes sobre a atualização
+      window.dispatchEvent(new CustomEvent('userStatsUpdated'));
+      
+    } catch (error) {
+      console.error('Error in purchaseToken:', error);
+      toast({
+        title: "Erro na compra",
+        description: "Houve um erro ao processar a compra. Tente novamente.",
+        variant: "destructive",
+      });
+      
+      // Atualizar do servidor para garantir consistência em caso de erro
+      await fetchUserStats();
+    }
   };
 
   const handleLottery = async (token: Token, loserUserId: string) => {
     if (!user) return;
 
-    // Remover token do perdedor
-    await supabase
-      .from('user_tokens')
-      .delete()
-      .eq('user_id', loserUserId)
-      .eq('token_id', token.id);
+    try {
+      // Operação atômica para o sorteio
+      const newCredits = userStats.credits - token.price;
+      const newScore = userStats.score + token.points;
 
-    // Adicionar pontos ao perdedor
-    const { data: loserScore } = await supabase
-      .from('user_scores')
-      .select('score')
-      .eq('user_id', loserUserId)
-      .single();
+      // 1. Obter score atual do perdedor
+      const { data: loserScore, error: loserScoreError } = await supabase
+        .from('user_scores')
+        .select('score')
+        .eq('user_id', loserUserId)
+        .single();
 
-    await supabase
-      .from('user_scores')
-      .update({ score: (loserScore?.score || 0) + token.points })
-      .eq('user_id', loserUserId);
+      if (loserScoreError) throw loserScoreError;
 
-    // Debitar créditos do comprador
-    await supabase
-      .from('user_credits')
-      .update({ credits: userStats.credits - token.price })
-      .eq('user_id', user.id);
+      // 2. Remover token do perdedor (apenas 1 unidade)
+      const { error: removeTokenError } = await supabase
+        .from('user_tokens')
+        .delete()
+        .eq('user_id', loserUserId)
+        .eq('token_id', token.id)
+        .order('purchased_at', { ascending: false })
+        .limit(1);
 
-    // Adicionar pontos ao comprador (valor do token apenas)
-    await supabase
-      .from('user_scores')
-      .update({ score: userStats.score + token.points })
-      .eq('user_id', user.id);
+      if (removeTokenError) throw removeTokenError;
 
-    // Registrar transações
-    await Promise.all([
-      supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          type: 'lottery_purchase',
-          credits: -token.price,
-          points: token.points,
-          description: `Sorteio - ganhou pontos com ${token.name}`,
-          metadata: { token_id: token.id, token_name: token.name }
-        }),
-      supabase
-        .from('transactions')
-        .insert({
-          user_id: loserUserId,
-          type: 'lottery_loss',
-          points: token.points,
-          description: `Sorteio - perdeu token ${token.name}, ganhou pontos`,
-          metadata: { token_id: token.id, token_name: token.name }
-        })
-    ]);
+      // 3. Adicionar pontos ao perdedor (valor base do token)
+      const { error: loserScoreUpdateError } = await supabase
+        .from('user_scores')
+        .update({ score: (loserScore?.score || 0) + token.points })
+        .eq('user_id', loserUserId);
 
-    toast({
-      title: "Sorteio realizado!",
-      description: `Você ganhou ${token.points} pontos no sorteio do token ${token.name}`,
-    });
+      if (loserScoreUpdateError) {
+        // Reverter remoção do token
+        await supabase
+          .from('user_tokens')
+          .insert({
+            user_id: loserUserId,
+            token_id: token.id,
+            token_name: token.name,
+            purchase_price: token.price
+          });
+        throw loserScoreUpdateError;
+      }
 
-    // Atualizar stats localmente para feedback instantâneo
-    setUserStats(prev => ({
-      credits: prev.credits - token.price,
-      score: prev.score + token.points
-    }));
+      // 4. Debitar créditos do comprador
+      const { error: creditsError } = await supabase
+        .from('user_credits')
+        .update({ credits: newCredits })
+        .eq('user_id', user.id);
 
-    // Atualizar do servidor para garantir consistência
-    await fetchUserStats();
-    
-    // Notificar outros componentes sobre a atualização
-    window.dispatchEvent(new CustomEvent('userStatsUpdated'));
+      if (creditsError) {
+        // Reverter alterações do perdedor
+        await Promise.all([
+          supabase
+            .from('user_tokens')
+            .insert({
+              user_id: loserUserId,
+              token_id: token.id,
+              token_name: token.name,
+              purchase_price: token.price
+            }),
+          supabase
+            .from('user_scores')
+            .update({ score: loserScore?.score || 0 })
+            .eq('user_id', loserUserId)
+        ]);
+        throw creditsError;
+      }
+
+      // 5. Adicionar pontos ao comprador (valor base do token apenas)
+      const { error: scoreError } = await supabase
+        .from('user_scores')
+        .update({ score: newScore })
+        .eq('user_id', user.id);
+
+      if (scoreError) {
+        // Reverter todas as alterações
+        await Promise.all([
+          supabase
+            .from('user_credits')
+            .update({ credits: userStats.credits })
+            .eq('user_id', user.id),
+          supabase
+            .from('user_tokens')
+            .insert({
+              user_id: loserUserId,
+              token_id: token.id,
+              token_name: token.name,
+              purchase_price: token.price
+            }),
+          supabase
+            .from('user_scores')
+            .update({ score: loserScore?.score || 0 })
+            .eq('user_id', loserUserId)
+        ]);
+        throw scoreError;
+      }
+
+      // 6. Registrar transações
+      await Promise.all([
+        supabase
+          .from('transactions')
+          .insert({
+            user_id: user.id,
+            type: 'lottery_purchase',
+            credits: -token.price,
+            points: token.points,
+            description: `Sorteio - ganhou pontos com ${token.name}`,
+            metadata: { token_id: token.id, token_name: token.name, lottery_victim: loserUserId }
+          }),
+        supabase
+          .from('transactions')
+          .insert({
+            user_id: loserUserId,
+            type: 'lottery_loss',
+            points: token.points,
+            description: `Sorteio - perdeu token ${token.name}, ganhou pontos`,
+            metadata: { token_id: token.id, token_name: token.name, lottery_winner: user.id }
+          })
+      ]);
+
+      toast({
+        title: "Sorteio realizado!",
+        description: `Você ganhou ${token.points} pontos no sorteio do token ${token.name}`,
+      });
+
+      // Atualizar stats localmente para feedback instantâneo
+      setUserStats({
+        credits: newCredits,
+        score: newScore
+      });
+
+      // Notificar outros componentes sobre a atualização
+      window.dispatchEvent(new CustomEvent('userStatsUpdated'));
+      
+    } catch (error) {
+      console.error('Error in handleLottery:', error);
+      toast({
+        title: "Erro no sorteio",
+        description: "Houve um erro ao processar o sorteio. Tente novamente.",
+        variant: "destructive",
+      });
+      
+      // Atualizar do servidor para garantir consistência em caso de erro
+      await fetchUserStats();
+    }
   };
 
   if (loading) {

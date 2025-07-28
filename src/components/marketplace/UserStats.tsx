@@ -73,48 +73,65 @@ export const UserStats = () => {
   const handlePaymentSuccess = async () => {
     if (!user) return;
     
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session_id');
+    
+    if (!sessionId) return;
+    
+    // Verificar se este session_id já foi processado no localStorage
+    const processedPayments = JSON.parse(localStorage.getItem('processedPayments') || '[]');
+    if (processedPayments.includes(sessionId)) {
+      // Já foi processado, apenas limpar URL e atualizar stats
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment');
+      url.searchParams.delete('session_id');
+      window.history.replaceState({}, document.title, url.pathname);
+      fetchUserStats();
+      return;
+    }
+    
     toast({
       title: "Verificando pagamento...",
       description: "Aguarde enquanto confirmamos seu pagamento",
     });
     
     try {
-      // Check for pending Stripe sessions
-      const urlParams = new URLSearchParams(window.location.search);
-      const sessionId = urlParams.get('session_id');
+      // Verify payment with Stripe
+      const { data, error } = await supabase.functions.invoke('verify-payment', {
+        body: { session_id: sessionId }
+      });
       
-      if (sessionId) {
-        // Verify payment with Stripe
-        const { data, error } = await supabase.functions.invoke('verify-payment', {
-          body: { session_id: sessionId }
+      if (error) throw error;
+      
+      if (data?.success) {
+        // Marcar como processado no localStorage
+        processedPayments.push(sessionId);
+        localStorage.setItem('processedPayments', JSON.stringify(processedPayments));
+        
+        toast({
+          title: "Pagamento processado!",
+          description: data.message,
         });
         
-        if (error) throw error;
-        
-        if (data?.success) {
-          toast({
-            title: "Pagamento processado!",
-            description: data.message,
-          });
-        }
+        // Limpar URL
+        const url = new URL(window.location.href);
+        url.searchParams.delete('payment');
+        url.searchParams.delete('session_id');
+        window.history.replaceState({}, document.title, url.pathname);
       }
       
       // Always refresh stats after potential payment
       setTimeout(() => {
         fetchUserStats();
-      }, 2000);
+      }, 1000);
       
     } catch (error) {
       console.error('Payment verification error:', error);
       toast({
-        title: "Verificando créditos...",
-        description: "Aguarde, estamos atualizando seus créditos",
+        title: "Erro na verificação",
+        description: "Tente recarregar a página",
+        variant: "destructive"
       });
-      
-      // Still refresh stats even if verification fails
-      setTimeout(() => {
-        fetchUserStats();
-      }, 3000);
     }
   };
 
