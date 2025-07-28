@@ -78,9 +78,15 @@ export const UserStats = () => {
     
     if (!sessionId) return;
     
-    // Verificar se este session_id já foi processado no localStorage
-    const processedPayments = JSON.parse(localStorage.getItem('processedPayments') || '[]');
-    if (processedPayments.includes(sessionId)) {
+    // Verificar se este session_id já foi processado no banco
+    const { data: existingPayment } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('payment_id', sessionId)
+      .eq('status', 'completed')
+      .maybeSingle();
+    
+    if (existingPayment) {
       // Já foi processado, apenas limpar URL e atualizar stats
       const url = new URL(window.location.href);
       url.searchParams.delete('payment');
@@ -104,10 +110,6 @@ export const UserStats = () => {
       if (error) throw error;
       
       if (data?.success) {
-        // Marcar como processado no localStorage
-        processedPayments.push(sessionId);
-        localStorage.setItem('processedPayments', JSON.stringify(processedPayments));
-        
         toast({
           title: "Pagamento processado!",
           description: data.message,
