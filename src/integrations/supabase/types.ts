@@ -326,6 +326,27 @@ export type Database = {
         }
         Returns: boolean
       }
+      lottery_token_atomic: {
+        Args: {
+          p_buyer_id: string
+          p_loser_id: string
+          p_token_id: string
+          p_token_name: string
+          p_token_price: number
+          p_token_points: number
+        }
+        Returns: Json
+      }
+      purchase_token_atomic: {
+        Args: {
+          p_user_id: string
+          p_token_id: string
+          p_token_name: string
+          p_token_price: number
+          p_token_points: number
+        }
+        Returns: Json
+      }
     }
     Enums: {
       user_role: "user" | "admin"

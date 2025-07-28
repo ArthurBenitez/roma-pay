@@ -132,83 +132,35 @@ export const MarketplaceTokens = () => {
     if (!user) return;
 
     try {
-      // Operação atômica - todas as operações devem ser bem-sucedidas ou falhar juntas
-      const newCredits = userStats.credits - token.price;
-      const pointsEarned = Math.floor(token.price * 1.25);
-      const newScore = userStats.score + pointsEarned;
+      const { data, error } = await supabase.rpc('purchase_token_atomic', {
+        p_user_id: user.id,
+        p_token_id: token.id,
+        p_token_name: token.name,
+        p_token_price: token.price,
+        p_token_points: token.points
+      });
 
-      // 1. Debitar créditos
-      const { error: creditsError } = await supabase
-        .from('user_credits')
-        .update({ credits: newCredits })
-        .eq('user_id', user.id);
+      if (error) throw error;
 
-      if (creditsError) throw creditsError;
-
-      // 2. Adicionar token
-      const { error: tokenError } = await supabase
-        .from('user_tokens')
-        .insert({
-          user_id: user.id,
-          token_id: token.id,
-          token_name: token.name,
-          purchase_price: token.price
+      const result = data as any;
+      if (!result?.success) {
+        toast({
+          title: "Erro",
+          description: result?.error || "Erro desconhecido",
+          variant: "destructive",
         });
-
-      if (tokenError) {
-        // Reverter créditos em caso de erro
-        await supabase
-          .from('user_credits')
-          .update({ credits: userStats.credits })
-          .eq('user_id', user.id);
-        throw tokenError;
+        return;
       }
-
-      // 3. Adicionar pontos (valor + 25%)
-      const { error: scoreError } = await supabase
-        .from('user_scores')
-        .update({ score: newScore })
-        .eq('user_id', user.id);
-
-      if (scoreError) {
-        // Reverter créditos e remover token em caso de erro
-        await Promise.all([
-          supabase
-            .from('user_credits')
-            .update({ credits: userStats.credits })
-            .eq('user_id', user.id),
-          supabase
-            .from('user_tokens')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('token_id', token.id)
-            .order('purchased_at', { ascending: false })
-            .limit(1)
-        ]);
-        throw scoreError;
-      }
-
-      // 4. Registrar transação
-      await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          type: 'token_purchase',
-          credits: -token.price,
-          points: pointsEarned,
-          description: `Compra do token ${token.name}`,
-          metadata: { token_id: token.id, token_name: token.name }
-        });
 
       toast({
         title: "Token comprado!",
-        description: `Você ganhou ${pointsEarned} pontos com o token ${token.name}`,
+        description: `Você ganhou ${result.points_earned} pontos com o token ${token.name}`,
       });
 
       // Atualizar stats localmente para feedback instantâneo
       setUserStats({
-        credits: newCredits,
-        score: newScore
+        credits: result.new_credits,
+        score: result.new_score
       });
 
       // Notificar outros componentes sobre a atualização
@@ -231,135 +183,36 @@ export const MarketplaceTokens = () => {
     if (!user) return;
 
     try {
-      // Operação atômica para o sorteio
-      const newCredits = userStats.credits - token.price;
-      const newScore = userStats.score + token.points;
+      const { data, error } = await supabase.rpc('lottery_token_atomic', {
+        p_buyer_id: user.id,
+        p_loser_id: loserUserId,
+        p_token_id: token.id,
+        p_token_name: token.name,
+        p_token_price: token.price,
+        p_token_points: token.points
+      });
 
-      // 1. Obter score atual do perdedor
-      const { data: loserScore, error: loserScoreError } = await supabase
-        .from('user_scores')
-        .select('score')
-        .eq('user_id', loserUserId)
-        .single();
+      if (error) throw error;
 
-      if (loserScoreError) throw loserScoreError;
-
-      // 2. Remover token do perdedor (apenas 1 unidade)
-      const { error: removeTokenError } = await supabase
-        .from('user_tokens')
-        .delete()
-        .eq('user_id', loserUserId)
-        .eq('token_id', token.id)
-        .order('purchased_at', { ascending: false })
-        .limit(1);
-
-      if (removeTokenError) throw removeTokenError;
-
-      // 3. Adicionar pontos ao perdedor (valor base do token)
-      const { error: loserScoreUpdateError } = await supabase
-        .from('user_scores')
-        .update({ score: (loserScore?.score || 0) + token.points })
-        .eq('user_id', loserUserId);
-
-      if (loserScoreUpdateError) {
-        // Reverter remoção do token
-        await supabase
-          .from('user_tokens')
-          .insert({
-            user_id: loserUserId,
-            token_id: token.id,
-            token_name: token.name,
-            purchase_price: token.price
-          });
-        throw loserScoreUpdateError;
+      const result = data as any;
+      if (!result?.success) {
+        toast({
+          title: "Erro",
+          description: result?.error || "Erro desconhecido",
+          variant: "destructive",
+        });
+        return;
       }
-
-      // 4. Debitar créditos do comprador
-      const { error: creditsError } = await supabase
-        .from('user_credits')
-        .update({ credits: newCredits })
-        .eq('user_id', user.id);
-
-      if (creditsError) {
-        // Reverter alterações do perdedor
-        await Promise.all([
-          supabase
-            .from('user_tokens')
-            .insert({
-              user_id: loserUserId,
-              token_id: token.id,
-              token_name: token.name,
-              purchase_price: token.price
-            }),
-          supabase
-            .from('user_scores')
-            .update({ score: loserScore?.score || 0 })
-            .eq('user_id', loserUserId)
-        ]);
-        throw creditsError;
-      }
-
-      // 5. Adicionar pontos ao comprador (valor base do token apenas)
-      const { error: scoreError } = await supabase
-        .from('user_scores')
-        .update({ score: newScore })
-        .eq('user_id', user.id);
-
-      if (scoreError) {
-        // Reverter todas as alterações
-        await Promise.all([
-          supabase
-            .from('user_credits')
-            .update({ credits: userStats.credits })
-            .eq('user_id', user.id),
-          supabase
-            .from('user_tokens')
-            .insert({
-              user_id: loserUserId,
-              token_id: token.id,
-              token_name: token.name,
-              purchase_price: token.price
-            }),
-          supabase
-            .from('user_scores')
-            .update({ score: loserScore?.score || 0 })
-            .eq('user_id', loserUserId)
-        ]);
-        throw scoreError;
-      }
-
-      // 6. Registrar transações
-      await Promise.all([
-        supabase
-          .from('transactions')
-          .insert({
-            user_id: user.id,
-            type: 'lottery_purchase',
-            credits: -token.price,
-            points: token.points,
-            description: `Sorteio - ganhou pontos com ${token.name}`,
-            metadata: { token_id: token.id, token_name: token.name, lottery_victim: loserUserId }
-          }),
-        supabase
-          .from('transactions')
-          .insert({
-            user_id: loserUserId,
-            type: 'lottery_loss',
-            points: token.points,
-            description: `Sorteio - perdeu token ${token.name}, ganhou pontos`,
-            metadata: { token_id: token.id, token_name: token.name, lottery_winner: user.id }
-          })
-      ]);
 
       toast({
         title: "Sorteio realizado!",
-        description: `Você ganhou ${token.points} pontos no sorteio do token ${token.name}`,
+        description: `Você ganhou ${result.points_earned} pontos no sorteio do token ${token.name}`,
       });
 
       // Atualizar stats localmente para feedback instantâneo
       setUserStats({
-        credits: newCredits,
-        score: newScore
+        credits: result.new_credits,
+        score: result.new_score
       });
 
       // Notificar outros componentes sobre a atualização
