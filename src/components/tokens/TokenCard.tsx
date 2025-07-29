@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export interface Token {
   id: string;
@@ -10,12 +11,18 @@ export interface Token {
   points: number;
 }
 
+export interface TokenStats {
+  owned_count: number;
+  lost_last_24h: number;
+}
+
 interface TokenCardProps {
   token: Token;
+  tokenStats?: TokenStats;
   onPurchase: () => void;
 }
 
-export const TokenCard = ({ token, onPurchase }: TokenCardProps) => {
+export const TokenCard = ({ token, tokenStats, onPurchase }: TokenCardProps) => {
   return (
     <Card className="bg-card/90 border-border hover-scale group">
       <CardContent className="p-0">
@@ -37,6 +44,19 @@ export const TokenCard = ({ token, onPurchase }: TokenCardProps) => {
               {token.description}
             </p>
           </div>
+
+          {tokenStats && (
+            <div className="flex gap-2 flex-wrap">
+              <Badge variant="secondary" className="text-xs">
+                Possui: {tokenStats.owned_count}
+              </Badge>
+              {tokenStats.lost_last_24h > 0 && (
+                <Badge variant="destructive" className="text-xs">
+                  Perdeu 24h: {tokenStats.lost_last_24h}
+                </Badge>
+              )}
+            </div>
+          )}
           
           <div className="flex justify-between items-center">
             <div className="space-y-1">

@@ -316,19 +316,7 @@ export type Database = {
       }
     }
     Views: {
-      user_token_stats: {
-        Row: {
-          image_url: string | null
-          lost_last_24h: number | null
-          owned_count: number | null
-          points: number | null
-          price: number | null
-          token_id: string | null
-          token_name: string | null
-          user_id: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       has_role: {

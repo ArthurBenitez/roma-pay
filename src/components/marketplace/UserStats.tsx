@@ -81,12 +81,11 @@ export const UserStats = () => {
     // Verificar se este session_id já foi processado no banco
     const { data: existingPayment } = await supabase
       .from('payments')
-      .select('id')
+      .select('id, status')
       .eq('payment_id', sessionId)
-      .eq('status', 'completed')
       .maybeSingle();
     
-    if (existingPayment) {
+    if (existingPayment?.status === 'completed') {
       // Já foi processado, apenas limpar URL e atualizar stats
       const url = new URL(window.location.href);
       url.searchParams.delete('payment');
@@ -102,7 +101,7 @@ export const UserStats = () => {
     });
     
     try {
-      // Verify payment with Stripe
+      // Verify payment with Stripe apenas se não foi processado ainda
       const { data, error } = await supabase.functions.invoke('verify-payment', {
         body: { session_id: sessionId }
       });
@@ -114,15 +113,20 @@ export const UserStats = () => {
           title: "Pagamento processado!",
           description: data.message,
         });
-        
-        // Limpar URL
-        const url = new URL(window.location.href);
-        url.searchParams.delete('payment');
-        url.searchParams.delete('session_id');
-        window.history.replaceState({}, document.title, url.pathname);
+      } else {
+        toast({
+          title: "Pagamento pendente",
+          description: data?.message || "Aguardando confirmação do pagamento",
+        });
       }
       
-      // Always refresh stats after potential payment
+      // Limpar URL sempre
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment');
+      url.searchParams.delete('session_id');
+      window.history.replaceState({}, document.title, url.pathname);
+      
+      // Sempre atualizar stats após verificação
       setTimeout(() => {
         fetchUserStats();
       }, 1000);

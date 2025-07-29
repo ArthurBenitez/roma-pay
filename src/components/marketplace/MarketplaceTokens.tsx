@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { TokenCard } from "@/components/tokens/TokenCard";
+import { TokenCard, TokenStats } from "@/components/tokens/TokenCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,12 +23,14 @@ export const MarketplaceTokens = () => {
   const { toast } = useToast();
   const [tokens, setTokens] = useState<Token[]>([]);
   const [userStats, setUserStats] = useState<UserStats>({ credits: 0, score: 0 });
+  const [tokenStats, setTokenStats] = useState<Record<string, TokenStats>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchTokens();
     if (user) {
       fetchUserStats();
+      fetchTokenStats();
     }
   }, [user]);
 
@@ -71,6 +73,53 @@ export const MarketplaceTokens = () => {
       });
     } catch (error) {
       console.error('Error fetching user stats:', error);
+    }
+  };
+
+  const fetchTokenStats = async () => {
+    if (!user) return;
+
+    try {
+      // Buscar tokens possuídos pelo usuário
+      const { data: userTokens } = await supabase
+        .from('user_tokens')
+        .select('token_id')
+        .eq('user_id', user.id);
+
+      // Buscar tokens perdidos nas últimas 24h
+      const { data: lostTokens } = await supabase
+        .from('transactions')
+        .select('metadata')
+        .eq('user_id', user.id)
+        .eq('type', 'lottery_loss')
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+      // Contar tokens por tipo
+      const stats: Record<string, TokenStats> = {};
+      
+      // Contar tokens possuídos
+      userTokens?.forEach(token => {
+        if (!stats[token.token_id]) {
+          stats[token.token_id] = { owned_count: 0, lost_last_24h: 0 };
+        }
+        stats[token.token_id].owned_count++;
+      });
+
+      // Contar tokens perdidos nas últimas 24h
+      lostTokens?.forEach(transaction => {
+        const metadata = transaction.metadata as any;
+        const tokenId = metadata?.token_id;
+        if (tokenId) {
+          if (!stats[tokenId]) {
+            stats[tokenId] = { owned_count: 0, lost_last_24h: 0 };
+          }
+          stats[tokenId].lost_last_24h++;
+        }
+      });
+
+      setTokenStats(stats);
+    } catch (error) {
+      console.error('Error fetching token stats:', error);
     }
   };
 
@@ -163,6 +212,9 @@ export const MarketplaceTokens = () => {
         score: result.new_score
       });
 
+      // Atualizar estatísticas de tokens
+      await fetchTokenStats();
+
       // Notificar outros componentes sobre a atualização
       window.dispatchEvent(new CustomEvent('userStatsUpdated'));
       
@@ -215,6 +267,9 @@ export const MarketplaceTokens = () => {
         score: result.new_score
       });
 
+      // Atualizar estatísticas de tokens
+      await fetchTokenStats();
+
       // Notificar outros componentes sobre a atualização
       window.dispatchEvent(new CustomEvent('userStatsUpdated'));
       
@@ -254,6 +309,7 @@ export const MarketplaceTokens = () => {
           <TokenCard
             key={token.id}
             token={token}
+            tokenStats={tokenStats[token.id]}
             onPurchase={() => handleTokenPurchase(token)}
           />
         ))}
