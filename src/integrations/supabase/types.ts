@@ -316,7 +316,19 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_token_stats: {
+        Row: {
+          image_url: string | null
+          lost_last_24h: number | null
+          owned_count: number | null
+          points: number | null
+          price: number | null
+          token_id: string | null
+          token_name: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
