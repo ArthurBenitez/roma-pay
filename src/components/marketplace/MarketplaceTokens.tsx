@@ -258,7 +258,7 @@ export const MarketplaceTokens = () => {
 
       toast({
         title: "Sorteio realizado!",
-        description: `Você ganhou ${result.points_earned} pontos no sorteio do token ${token.name}`,
+        description: `Você ganhou o token ${token.name} e ${result.points_earned} pontos!`,
       });
 
       // Atualizar stats localmente para feedback instantâneo
