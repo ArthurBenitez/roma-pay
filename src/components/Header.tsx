@@ -37,6 +37,15 @@ export const Header = () => {
                 <span className="text-foreground">
                   Olá, {user.email?.split('@')[0] || 'Usuário'}
                 </span>
+                {user.email === 'admin@imperium.com' && (
+                  <Button 
+                    variant="destructive" 
+                    className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                    onClick={() => window.location.href = '/admin'}
+                  >
+                    🔐 ADMIN
+                  </Button>
+                )}
                 <Button 
                   variant="outline" 
                   onClick={signOut}

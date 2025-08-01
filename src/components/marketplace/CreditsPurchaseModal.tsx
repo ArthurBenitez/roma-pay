@@ -119,23 +119,34 @@ export const CreditsPurchaseModal = ({ open, onOpenChange, onSuccess }: CreditsP
             </div>
           </div>
           
-          <Button 
-            type="submit" 
-            className="w-full btn-rich-green text-xl py-6"
-            disabled={loading || parseInt(creditsAmount) < 10}
-          >
-            {loading ? (
-              <div className="flex items-center gap-2">
-                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                Processando...
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                💰 COMPRAR AGORA 💰
-              </div>
-            )}
-          </Button>
+          <div className="space-y-3">
+            <Button 
+              type="submit" 
+              className="w-full btn-rich-green text-xl py-6"
+              disabled={loading || parseInt(creditsAmount) < 10}
+            >
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                  Processando...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  💰 COMPRAR AGORA 💰
+                </div>
+              )}
+            </Button>
+            
+            <Button 
+              type="button" 
+              variant="outline"
+              className="w-full text-lg py-4 border-muted-foreground/30 text-muted-foreground"
+              disabled
+            >
+              🔜 Pagar Via Pix (em breve!) 🔜
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
