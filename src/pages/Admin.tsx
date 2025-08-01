@@ -61,7 +61,9 @@ export const Admin = () => {
       }
 
       // Apply sorting
-      const [sortField, sortOrder] = sortBy.split('_');
+      const lastUnderscoreIndex = sortBy.lastIndexOf('_');
+      const sortField = sortBy.substring(0, lastUnderscoreIndex);
+      const sortOrder = sortBy.substring(lastUnderscoreIndex + 1);
       query = query.order(sortField, { ascending: sortOrder === 'asc' });
 
       const { data, error } = await query;
