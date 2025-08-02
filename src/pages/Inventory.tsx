@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { Card, CardContent } from "@/components/ui/card";
+import { TokenCard } from "@/components/tokens/TokenCard";
 
 interface UserToken {
   id: string;
@@ -11,11 +11,13 @@ interface UserToken {
   token_name: string;
   purchased_at: string;
   purchase_price: number;
-  token_details?: {
+  tokens: {
+    id: string;
     name: string;
     image_url: string;
     description: string;
     points: number;
+    price: number;
   };
 }
 
@@ -33,31 +35,24 @@ export const Inventory = () => {
   const fetchUserTokens = async () => {
     try {
       setLoadingTokens(true);
-      const { data: userTokensData, error } = await supabase
+      const { data, error } = await supabase
         .from('user_tokens')
-        .select('*')
+        .select(`
+          *,
+          tokens (
+            id,
+            name,
+            image_url,
+            description,
+            points,
+            price
+          )
+        `)
         .eq('user_id', user?.id)
         .order('purchased_at', { ascending: false });
 
       if (error) throw error;
-
-      // Fetch token details separately
-      const tokensWithDetails = await Promise.all(
-        (userTokensData || []).map(async (userToken) => {
-          const { data: tokenData } = await supabase
-            .from('tokens')
-            .select('name, image_url, description, points')
-            .eq('id', userToken.token_id)
-            .single();
-          
-          return {
-            ...userToken,
-            token_details: tokenData
-          };
-        })
-      );
-
-      setUserTokens(tokensWithDetails);
+      setUserTokens(data || []);
     } catch (error) {
       console.error('Error fetching user tokens:', error);
     } finally {
@@ -126,44 +121,24 @@ export const Inventory = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {userTokens.map((userToken) => (
-                <Card key={userToken.id} className="bg-card/90 border-border">
-                     <CardContent className="p-0">
-                       <div className="relative overflow-hidden rounded-t-lg">
-                         <img
-                           src={userToken.token_details?.image_url || ""}
-                           alt={userToken.token_details?.name || userToken.token_name}
-                           className="w-full h-48 object-cover"
-                         />
-                         <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
-                       </div>
-                       
-                       <div className="p-6 space-y-4">
-                         <div>
-                           <h3 className="text-xl font-bold text-accent glow-text">
-                             {userToken.token_details?.name || userToken.token_name}
-                           </h3>
-                           <p className="text-muted-foreground text-sm mt-1">
-                             {userToken.token_details?.description || ""}
-                           </p>
-                         </div>
-                         
-                         <div className="flex justify-between items-center text-sm">
-                           <div>
-                             <span className="text-primary">Pontos:</span> {userToken.token_details?.points || 0}
-                           </div>
-                           <div>
-                             <span className="text-accent">Pago:</span> {userToken.purchase_price} créditos
-                           </div>
-                         </div>
-                         
-                         <div className="text-center">
-                           <p className="text-xs text-muted-foreground">
-                             Comprado em: {new Date(userToken.purchased_at).toLocaleDateString('pt-BR')}
-                           </p>
-                         </div>
-                       </div>
-                     </CardContent>
-                   </Card>
+                  <div key={userToken.id} className="relative">
+                    <TokenCard
+                      token={{
+                        id: userToken.tokens.id,
+                        name: userToken.tokens.name,
+                        image_url: userToken.tokens.image_url,
+                        description: userToken.tokens.description || "",
+                        points: userToken.tokens.points,
+                        price: userToken.purchase_price
+                      }}
+                      onPurchase={() => {}}
+                    />
+                    <div className="mt-2 text-center">
+                      <p className="text-xs text-muted-foreground">
+                        Comprado em: {new Date(userToken.purchased_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
                 ))}
               </div>
             </>
