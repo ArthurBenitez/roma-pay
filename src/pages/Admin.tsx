@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { NotificationToast } from "@/components/NotificationToast";
 import { 
   Select,
   SelectContent,
@@ -36,6 +37,7 @@ export const Admin = () => {
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [filter, setFilter] = useState("pending");
   const [sortBy, setSortBy] = useState("created_at_desc");
+  const [notification, setNotification] = useState<{type: 'approval' | 'rejection', message: string} | null>(null);
 
   useEffect(() => {
     if (!loading && (!user || user.email !== 'admin@imperium.com')) {
@@ -112,9 +114,10 @@ export const Admin = () => {
 
       if (error) throw error;
 
-      toast({
-        title: "Solicitação Aprovada",
-        description: "O usuário foi notificado sobre o pagamento",
+      // Show YouTube-style notification
+      setNotification({
+        type: 'approval',
+        message: "O usuário foi notificado sobre o pagamento via PIX"
       });
 
       fetchWithdrawalRequests();
@@ -158,9 +161,10 @@ export const Admin = () => {
 
       if (pointsError) throw pointsError;
 
-      toast({
-        title: "Solicitação Negada",
-        description: "Os pontos foram devolvidos ao usuário",
+      // Show YouTube-style notification
+      setNotification({
+        type: 'rejection',
+        message: `${points.toLocaleString()} pontos foram devolvidos ao usuário`
       });
 
       fetchWithdrawalRequests();
@@ -312,6 +316,14 @@ export const Admin = () => {
       </main>
 
       <Footer />
+      
+      {notification && (
+        <NotificationToast
+          type={notification.type}
+          message={notification.message}
+          onClose={() => setNotification(null)}
+        />
+      )}
     </div>
   );
 };

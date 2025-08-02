@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Coins, Trophy } from "lucide-react";
+import { Coins, Trophy, ArrowUpDown } from "lucide-react";
 import { CreditsPurchaseModal } from "./CreditsPurchaseModal";
+import { PointsExchangeModal } from "../PointsExchangeModal";
 
 interface UserStats {
   credits: number;
@@ -18,6 +19,7 @@ export const UserStats = () => {
   const [stats, setStats] = useState<UserStats>({ credits: 0, score: 0 });
   const [loading, setLoading] = useState(true);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [showExchangeModal, setShowExchangeModal] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -205,13 +207,23 @@ export const UserStats = () => {
       </Card>
 
       <Card className="bg-card/50 border-border hover-scale">
-        <CardContent className="p-6 text-center">
+        <CardContent className="p-6 text-center space-y-3">
           <Button 
             className="w-full btn-rich-green text-lg px-8 py-4"
             size="lg"
             onClick={() => setShowPurchaseModal(true)}
           >
             💰 Obter Créditos 💰
+          </Button>
+          
+          <Button 
+            className="w-full btn-rich-purple text-base px-6 py-3"
+            size="default"
+            onClick={() => setShowExchangeModal(true)}
+            disabled={stats.score < 100}
+          >
+            <ArrowUpDown className="h-4 w-4 mr-2" />
+            💎 Trocar Pontos 💎
           </Button>
         </CardContent>
       </Card>
@@ -220,6 +232,13 @@ export const UserStats = () => {
         open={showPurchaseModal}
         onOpenChange={setShowPurchaseModal}
         onSuccess={handlePurchaseSuccess}
+      />
+      
+      <PointsExchangeModal
+        isOpen={showExchangeModal}
+        onClose={() => setShowExchangeModal(false)}
+        userScore={stats.score}
+        onExchangeSuccess={handlePurchaseSuccess}
       />
     </div>
   );
