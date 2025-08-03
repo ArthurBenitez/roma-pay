@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { LoginModal } from "./auth/LoginModal";
 import { RegisterModal } from "./auth/RegisterModal";
 import { useAuth } from "@/hooks/useAuth";
+import { NotificationBell } from "./NotificationBell";
 
 export const Header = () => {
   const { user, signOut } = useAuth();
@@ -19,21 +20,11 @@ export const Header = () => {
             </div>
           </div>
           
-          <nav className="hidden md:flex items-center space-x-6">
-            <a href="#tokens" className="text-muted-foreground hover:text-accent transition-colors">
-              Tokens
-            </a>
-            <a href="#como-funciona" className="text-muted-foreground hover:text-accent transition-colors">
-              Como Funciona
-            </a>
-            <a href="#contato" className="text-muted-foreground hover:text-accent transition-colors">
-              Contato
-            </a>
-          </nav>
 
           <div className="flex items-center space-x-3">
             {user ? (
               <>
+                <NotificationBell />
                 <span className="text-foreground">
                   Olá, {user.email?.split('@')[0] || 'Usuário'}
                 </span>

@@ -83,7 +83,7 @@ export const PointsExchangeModal = ({ isOpen, onClose, userScore, onExchangeSucc
         .from('transactions')
         .insert({
           user_id: user.id,
-          type: 'withdrawal_request',
+          type: 'withdrawal',
           points: -pointsNumber,
           amount: amount,
           description: `Solicitação de saque de ${pointsNumber} pontos`,
