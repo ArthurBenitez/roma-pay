@@ -130,12 +130,15 @@ export const MarketplaceTokens = () => {
       const {
         data: existingTokens,
         error: fetchError
-      } = await supabase.from('user_tokens').select('user_id').eq('token_id', token.id);
+      } = await supabase.from('user_tokens').select('user_id').eq('token_id', token.id).neq('user_id', user.id);
+      
       if (fetchError) {
         console.error('Error fetching existing tokens:', fetchError);
         throw fetchError;
       }
-      const otherUsers = existingTokens?.filter(t => t.user_id !== user.id) || [];
+      
+      console.log(`Debug: Checking for existing ${token.name} tokens. Found ${existingTokens?.length || 0} other owners.`);
+      const otherUsers = existingTokens || [];
       if (otherUsers.length > 0) {
         // Sistema de sorteio - sortear entre outros usuários (não incluir o comprador)
         const randomIndex = Math.floor(Math.random() * otherUsers.length);
