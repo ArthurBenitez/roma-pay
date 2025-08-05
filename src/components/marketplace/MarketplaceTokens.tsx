@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { TokenCard, TokenStats } from "@/components/tokens/TokenCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 interface Token {
   id: string;
   name: string;
@@ -16,12 +17,9 @@ interface UserStats {
   score: number;
 }
 export const MarketplaceTokens = () => {
-  const {
-    user
-  } = useAuth();
-  const {
-    toast
-  } = useToast();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [tokens, setTokens] = useState<Token[]>([]);
   const [userStats, setUserStats] = useState<UserStats>({
     credits: 0,
@@ -111,8 +109,8 @@ export const MarketplaceTokens = () => {
   const handleTokenPurchase = async (token: Token) => {
     if (!user) {
       toast({
-        title: "Erro",
-        description: "Você precisa estar logado para comprar tokens",
+        title: "Login necessário",
+        description: "Faça login para comprar tokens",
         variant: "destructive"
       });
       return;
@@ -121,46 +119,61 @@ export const MarketplaceTokens = () => {
     if (userStats.credits < token.price) {
       toast({
         title: "Créditos insuficientes",
-        description: `Você precisa de ${token.price} créditos para comprar este token`,
+        description: "Você não tem créditos suficientes para comprar este token",
         variant: "destructive"
       });
       return;
     }
 
     try {
-      console.log(`🎯 Iniciando compra do token ${token.name} (ID: ${token.id}) pelo usuário ${user.id}`);
+      console.log(`🎯 Iniciando compra via Edge Function para token ${token.name} (ID: ${token.id})`);
       
-      // Buscar outros usuários que possuem este token específico
-      const { data: otherOwners, error: fetchError } = await supabase
-        .from('user_tokens')
-        .select('user_id, id')
-        .eq('token_id', token.id)
-        .neq('user_id', user.id);
-      
-      if (fetchError) {
-        console.error('❌ Erro ao buscar outros proprietários:', fetchError);
-        throw fetchError;
+      // Chamar a Edge Function que centraliza toda a lógica de loteria
+      const { data: result, error } = await supabase.functions.invoke('token-lottery', {
+        body: {
+          user_id: user.id,
+          token_id: token.id,
+          token_name: token.name,
+          token_price: token.price,
+          token_points: token.points
+        }
+      });
+
+      if (error) {
+        console.error('❌ Erro na Edge Function:', error);
+        throw error;
       }
-      
-      console.log(`🔍 Outros proprietários encontrados:`, otherOwners);
-      console.log(`📊 Total de outros proprietários: ${otherOwners?.length || 0}`);
-      
-      if (otherOwners && otherOwners.length > 0) {
-        // SISTEMA DE LOTERIA ATIVO
-        console.log(`🎲 ATIVANDO SISTEMA DE LOTERIA!`);
-        
-        // Selecionar usuário aleatório que perderá o token
-        const randomIndex = Math.floor(Math.random() * otherOwners.length);
-        const selectedLoser = otherOwners[randomIndex];
-        
-        console.log(`🎯 Usuário sorteado para perder token: ${selectedLoser.user_id}`);
-        
-        await handleLottery(token, selectedLoser.user_id);
-      } else {
-        // COMPRA NORMAL
-        console.log(`💰 Compra normal - nenhum outro proprietário encontrado`);
-        await purchaseToken(token);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Erro desconhecido');
       }
+
+      console.log(`✅ ${result.type === 'lottery' ? 'Loteria' : 'Compra'} executada com sucesso:`, result.data);
+
+      toast({
+        title: result.type === 'lottery' ? "Sorteio Vencido!" : "Token Comprado!",
+        description: result.message,
+        variant: "default"
+      });
+
+      // Atualizar stats localmente se tivermos os dados
+      if (result.data) {
+        setUserStats({
+          credits: result.data.new_credits,
+          score: result.data.new_score
+        });
+      }
+
+      // Atualizar todas as queries relacionadas
+      queryClient.invalidateQueries({ queryKey: ['userStats'] });
+      queryClient.invalidateQueries({ queryKey: ['tokenStats'] });
+      
+      // Refetch para garantir dados atualizados
+      await fetchUserStats();
+      await fetchTokenStats();
+      
+      // Notificar outros componentes
+      window.dispatchEvent(new CustomEvent('userStatsUpdated'));
       
     } catch (error) {
       console.error('❌ Erro na compra do token:', error);
