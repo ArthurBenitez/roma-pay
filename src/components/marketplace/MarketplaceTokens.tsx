@@ -117,6 +117,7 @@ export const MarketplaceTokens = () => {
       });
       return;
     }
+    
     if (userStats.credits < token.price) {
       toast({
         title: "Créditos insuficientes",
@@ -125,36 +126,47 @@ export const MarketplaceTokens = () => {
       });
       return;
     }
+
     try {
-      // Verifica se outros usuários têm o mesmo token
-      const {
-        data: existingTokens,
-        error: fetchError
-      } = await supabase.from('user_tokens').select('user_id').eq('token_id', token.id).neq('user_id', user.id);
+      console.log(`🎯 Iniciando compra do token ${token.name} (ID: ${token.id}) pelo usuário ${user.id}`);
+      
+      // Buscar outros usuários que possuem este token específico
+      const { data: otherOwners, error: fetchError } = await supabase
+        .from('user_tokens')
+        .select('user_id, id')
+        .eq('token_id', token.id)
+        .neq('user_id', user.id);
       
       if (fetchError) {
-        console.error('Error fetching existing tokens:', fetchError);
+        console.error('❌ Erro ao buscar outros proprietários:', fetchError);
         throw fetchError;
       }
       
-      console.log(`Debug: Checking for existing ${token.name} tokens. Found ${existingTokens?.length || 0} other owners.`);
-      const otherUsers = existingTokens || [];
-      if (otherUsers.length > 0) {
-        // Sistema de sorteio - sortear entre outros usuários (não incluir o comprador)
-        const randomIndex = Math.floor(Math.random() * otherUsers.length);
-        const loserUserId = otherUsers[randomIndex].user_id;
-
-        // Realizar sorteio - comprador ganha pontos, perdedor perde token mas ganha pontos
-        await handleLottery(token, loserUserId);
+      console.log(`🔍 Outros proprietários encontrados:`, otherOwners);
+      console.log(`📊 Total de outros proprietários: ${otherOwners?.length || 0}`);
+      
+      if (otherOwners && otherOwners.length > 0) {
+        // SISTEMA DE LOTERIA ATIVO
+        console.log(`🎲 ATIVANDO SISTEMA DE LOTERIA!`);
+        
+        // Selecionar usuário aleatório que perderá o token
+        const randomIndex = Math.floor(Math.random() * otherOwners.length);
+        const selectedLoser = otherOwners[randomIndex];
+        
+        console.log(`🎯 Usuário sorteado para perder token: ${selectedLoser.user_id}`);
+        
+        await handleLottery(token, selectedLoser.user_id);
       } else {
-        // Compra normal - nenhum outro usuário tem este token
+        // COMPRA NORMAL
+        console.log(`💰 Compra normal - nenhum outro proprietário encontrado`);
         await purchaseToken(token);
       }
+      
     } catch (error) {
-      console.error('Error in token purchase:', error);
+      console.error('❌ Erro na compra do token:', error);
       toast({
         title: "Erro",
-        description: "Erro ao processar a compra",
+        description: "Erro ao processar a compra do token",
         variant: "destructive"
       });
     }
