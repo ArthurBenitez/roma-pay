@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { CreditCard, DollarSign } from "lucide-react";
+import { CreditCard, DollarSign, Smartphone } from "lucide-react";
+import { PixPaymentModal } from "./PixPaymentModal";
+import { QRCodeDisplayModal } from "./QRCodeDisplayModal";
 
 interface CreditsPurchaseModalProps {
   open: boolean;
@@ -16,6 +18,9 @@ interface CreditsPurchaseModalProps {
 export const CreditsPurchaseModal = ({ open, onOpenChange, onSuccess }: CreditsPurchaseModalProps) => {
   const [creditsAmount, setCreditsAmount] = useState("50");
   const [loading, setLoading] = useState(false);
+  const [pixModalOpen, setPixModalOpen] = useState(false);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrData, setQrData] = useState<any>(null);
   const { toast } = useToast();
 
   const handlePurchase = async (e: React.FormEvent) => {
@@ -59,6 +64,34 @@ export const CreditsPurchaseModal = ({ open, onOpenChange, onSuccess }: CreditsP
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePixPayment = () => {
+    const amount = parseInt(creditsAmount);
+    
+    if (amount < 10) {
+      toast({
+        title: "Quantidade inválida",
+        description: "Quantidade mínima é 10 créditos",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setPixModalOpen(true);
+  };
+
+  const handlePixSuccess = (data: any) => {
+    setQrData(data);
+    setQrModalOpen(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    onSuccess();
+    toast({
+      title: "Pagamento confirmado!",
+      description: "Créditos adicionados à sua conta",
+    });
   };
 
   const presetAmounts = [10, 25, 50, 100, 250, 500];
@@ -141,13 +174,30 @@ export const CreditsPurchaseModal = ({ open, onOpenChange, onSuccess }: CreditsP
             <Button 
               type="button" 
               variant="outline"
-              className="w-full text-lg py-4 border-muted-foreground/30 text-muted-foreground"
-              disabled
+              className="w-full text-lg py-4 border-accent/50 text-accent hover:bg-accent/10"
+              onClick={handlePixPayment}
             >
-              🔜 Pagar Via Pix (em breve!) 🔜
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-5 w-5" />
+                🎯 Pagar Via PIX 🎯
+              </div>
             </Button>
           </div>
         </form>
+
+        <PixPaymentModal
+          open={pixModalOpen}
+          onOpenChange={setPixModalOpen}
+          creditsAmount={parseInt(creditsAmount)}
+          onSuccess={handlePixSuccess}
+        />
+
+        <QRCodeDisplayModal
+          open={qrModalOpen}
+          onOpenChange={setQrModalOpen}
+          qrData={qrData}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
       </DialogContent>
     </Dialog>
   );
